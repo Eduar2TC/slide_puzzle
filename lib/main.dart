@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:slide_puzzle/pages/eight_page/eight_page.dart';
+import 'package:slide_puzzle/pages/home_page/home_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -27,7 +28,10 @@ class MyApp extends StatelessWidget {
         ).copyWith(secondary: Colors.red),
         useMaterial3: true,
       ),
-      home: const EightPage(),
+      home: const Home(),
+      routes: {
+        '/game': (context) => const EightPage(),
+      },
     );
   }
 }
