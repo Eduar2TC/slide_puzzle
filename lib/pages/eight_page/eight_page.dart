@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
-import 'package:slide_puzzle/pages/eight_page/Models/Tile.dart';
+import 'package:slide_puzzle/pages/eight_page/Models/tile.dart';
+import 'package:slide_puzzle/pages/eight_page/custom_widgets/tile_animation.dart';
 import 'package:slide_puzzle/pages/eight_page/utils/handle_timer.dart';
 import 'package:slide_puzzle/pages/general_custom_widgets/button_scale_animation_widget.dart';
 import 'package:slide_puzzle/pages/general_custom_widgets/custom_button.dart';
@@ -15,8 +16,10 @@ class EightPage extends StatefulWidget {
   EightPageState createState() => EightPageState();
 }
 
-class EightPageState extends State<EightPage> with WidgetsBindingObserver {
+class EightPageState extends State<EightPage>
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   late List<List<Tile>> _tiles;
+  late Map<Tile, TileAnimation> _tileAnimations;
 
   HandleTimer handleTimer = HandleTimer();
 
@@ -40,6 +43,13 @@ class EightPageState extends State<EightPage> with WidgetsBindingObserver {
     });
     handleTimer.startWatch();
     WidgetsBinding.instance.addObserver(this);
+
+    _tileAnimations = {};
+    for (var row in _tiles) {
+      for (var tile in row) {
+        _tileAnimations[tile] = TileAnimation(this);
+      }
+    }
     super.initState();
   }
 
@@ -118,39 +128,54 @@ class EightPageState extends State<EightPage> with WidgetsBindingObserver {
     }
   }
 
-  Future<bool> confirmDismiss(DismissDirection direction, x, y, item) async {
-    switch (direction) {
-      case DismissDirection.startToEnd:
-        setState(() {
-          String tmp = item;
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    for (var animation in _tileAnimations.values) {
+      animation.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<bool> confirmDismiss(
+      DismissDirection direction, int x, int y, String item) async {
+    setState(() {
+      // Realizar el intercambio de tiles
+      switch (direction) {
+        case DismissDirection.startToEnd:
+          String tmp = _tiles[x][y].value;
           _tiles[x][y].value = _tiles[x][y + 1].value;
           _tiles[x][y + 1].value = tmp;
-        });
-        return Future.value(true);
-      case DismissDirection.endToStart:
-        setState(() {
-          String tmp = item;
+          _tileAnimations[_tiles[x][y + 1]]?.animate(direction);
+          break;
+        case DismissDirection.endToStart:
+          String tmp = _tiles[x][y].value;
           _tiles[x][y].value = _tiles[x][y - 1].value;
           _tiles[x][y - 1].value = tmp;
-        });
-        return Future.value(true);
-      case DismissDirection.up:
-        setState(() {
-          String tmp = item;
+          _tileAnimations[_tiles[x][y - 1]]?.animate(direction);
+          break;
+        case DismissDirection.up:
+          String tmp = _tiles[x][y].value;
           _tiles[x][y].value = _tiles[x - 1][y].value;
           _tiles[x - 1][y].value = tmp;
-        });
-        return Future.value(true);
-      case DismissDirection.down:
-        setState(() {
-          String tmp = item;
+          _tileAnimations[_tiles[x - 1][y]]?.animate(direction);
+          break;
+        case DismissDirection.down:
+          String tmp = _tiles[x][y].value;
           _tiles[x][y].value = _tiles[x + 1][y].value;
           _tiles[x + 1][y].value = tmp;
-        });
-        return Future.value(true);
-      default:
-        return Future.value(false);
-    }
+          _tileAnimations[_tiles[x + 1][y]]?.animate(direction);
+          break;
+        default:
+          break;
+      }
+
+      clearDirections();
+      updateTiles();
+      userMovementCounter++;
+    });
+
+    return Future.value(false);
   }
 
   void _showPauseDialog(BuildContext context) {
@@ -197,6 +222,69 @@ class EightPageState extends State<EightPage> with WidgetsBindingObserver {
                       onPressed: () {
                         iconPlay = Icons.play_arrow;
                         handleTimer.startWatch();
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showRestartDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Center(
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            width: 300,
+            height: 200,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFFf9a825),
+                  Color(0xFFf07b3f),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                const DefaultTextStyle(
+                  style: TextStyle(
+                    fontSize: 30,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  child: Text(
+                    'Restart',
+                  ),
+                ),
+                Center(
+                  child: ButtonScaleAnimationWidget(
+                    child: CustomButton(
+                      width: 100,
+                      height: 100,
+                      icon: Icons.refresh,
+                      iconColor: Colors.white,
+                      bgColor: const Color(0xFFf9a825),
+                      size: 50,
+                      onPressed: () {
+                        handleTimer.resetWatch();
+                        handleTimer.startWatch();
+                        _tiles.shuffle(); //sufle tiles vertically
+                        for (var element in _tiles) {
+                          element.shuffle(); //sufle tiles horizontally
+                        }
+                        updateTiles();
+                        userMovementCounter = 0;
                         Navigator.of(context).pop();
                       },
                     ),
@@ -323,6 +411,8 @@ class EightPageState extends State<EightPage> with WidgetsBindingObserver {
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
+                    crossAxisSpacing: 2,
+                    mainAxisSpacing: 2,
                   ),
                   itemCount: _tiles.length * _tiles[0].length,
                   itemBuilder: (context, index) {
@@ -330,18 +420,17 @@ class EightPageState extends State<EightPage> with WidgetsBindingObserver {
                     int x, y = 0;
                     x = (index / tilesLength).floor();
                     y = (index % tilesLength);
+                    Tile currentTile = _tiles[x][y];
                     return GestureDetector(
                       onTap: () {
                         log('${_tiles[x][y].direction}');
                         /*TODO: ONTAP GAME MODE */
-                        /*
                         confirmDismiss(
                             _tiles[x][y].direction, x, y, _tiles[x][y].value);
-                             setState(() {
+                        setState(() {
                           clearDirections();
                           updateTiles();
                         });
-                            */
                       },
                       child: Dismissible(
                         key: Key(_tiles[x][y].value),
@@ -368,21 +457,36 @@ class EightPageState extends State<EightPage> with WidgetsBindingObserver {
                             userMovementCounter++;
                           });
                         }),
-                        child: Padding(
-                          padding: const EdgeInsets.all(1.0),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: _tiles[x][y].value != ''
-                                  ? const Color(0xFF7678ed)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Center(
-                              child: Text(
-                                _tiles[x][y].value,
-                                style: const TextStyle(
-                                  fontSize: 30,
-                                  color: Colors.white,
+                        onUpdate: (details) {
+                          log('onUpdate');
+                        },
+                        child: AnimatedBuilder(
+                          animation:
+                              _tileAnimations[currentTile]!.bounceController,
+                          builder: (context, child) {
+                            return Transform.translate(
+                              offset: _tileAnimations[currentTile]!
+                                  .bounceAnimation
+                                  .value,
+                              child: child,
+                            );
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(1.0),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: _tiles[x][y].value != ''
+                                    ? const Color(0xFF7678ed)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  _tiles[x][y].value,
+                                  style: const TextStyle(
+                                    fontSize: 30,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
@@ -406,14 +510,9 @@ class EightPageState extends State<EightPage> with WidgetsBindingObserver {
                       bgColor: const Color(0xFFf9a825),
                       size: width * 0.1,
                       onPressed: () {
-                        setState(() {
-                          handleTimer.resetWatch();
-                          _tiles.shuffle(); //sufle tiles vertically
-                          _tiles.forEach((element) {
-                            element.shuffle(); //sufle tiles horizontally
-                          });
-                          updateTiles();
-                        });
+                        //spend user press to shuffle tiles
+                        _showRestartDialog(context);
+                        handleTimer.stopWatch();
                       },
                     ),
                   ),

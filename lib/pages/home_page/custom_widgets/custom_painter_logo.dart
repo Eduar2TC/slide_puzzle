@@ -20,9 +20,6 @@ class PuzzleLogoPainter extends CustomPainter {
       fontSize: 30,
       fontWeight: FontWeight.bold,
     );
-    const textSpan = TextSpan(
-      style: textStyle,
-    );
 
     // Dibujar cada cuadrado con esquinas redondeadas y números
     for (int i = 0; i < 4; i++) {
