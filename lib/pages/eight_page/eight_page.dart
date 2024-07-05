@@ -35,6 +35,14 @@ class EightPageState extends State<EightPage>
       [Tile(value: '4'), Tile(value: '5'), Tile(value: '6')],
       [Tile(value: '7'), Tile(value: '8'), Tile(value: '')],
     ];
+    for (var row in _tiles) {
+      for (var tile in row) {
+        tile.animationController = AnimationController(
+          duration: const Duration(milliseconds: 200),
+          vsync: this,
+        );
+      }
+    }
     _tiles.shuffle();
     updateTiles();
 
@@ -126,6 +134,11 @@ class EightPageState extends State<EightPage>
         }
       }
     }
+    for (var row in _tiles) {
+      for (var tile in row) {
+        tile.animationController?.reset();
+      }
+    }
   }
 
   @override
@@ -134,13 +147,18 @@ class EightPageState extends State<EightPage>
     for (var animation in _tileAnimations.values) {
       animation.dispose();
     }
+    for (var row in _tiles) {
+      for (var tile in row) {
+        tile.animationController?.dispose();
+      }
+    }
     super.dispose();
   }
 
   Future<bool> confirmDismiss(
       DismissDirection direction, int x, int y, String item) async {
+    //await _tiles[x][y].animationController?.forward(from: 0.0);
     setState(() {
-      // Realizar el intercambio de tiles
       switch (direction) {
         case DismissDirection.startToEnd:
           String tmp = _tiles[x][y].value;
@@ -159,6 +177,7 @@ class EightPageState extends State<EightPage>
           _tiles[x][y].value = _tiles[x - 1][y].value;
           _tiles[x - 1][y].value = tmp;
           _tileAnimations[_tiles[x - 1][y]]?.animate(direction);
+
           break;
         case DismissDirection.down:
           String tmp = _tiles[x][y].value;
@@ -401,6 +420,7 @@ class EightPageState extends State<EightPage>
                 ],
               ),
               Container(
+                padding: const EdgeInsets.all(5),
                 width: width * 0.8,
                 height: width * 0.8,
                 decoration: BoxDecoration(
@@ -422,70 +442,116 @@ class EightPageState extends State<EightPage>
                     y = (index % tilesLength);
                     Tile currentTile = _tiles[x][y];
                     return GestureDetector(
-                      onTap: () {
+                      onTap: () async {
                         log('${_tiles[x][y].direction}');
                         /*TODO: ONTAP GAME MODE */
-                        confirmDismiss(
-                            _tiles[x][y].direction, x, y, _tiles[x][y].value);
-                        setState(() {
-                          clearDirections();
-                          updateTiles();
-                        });
+
+                        if (_tiles[x][y].direction != DismissDirection.none) {
+                          await _tiles[x][y]
+                              .animationController
+                              ?.forward(from: 0.0)
+                              .then((_) {
+                            confirmDismiss(_tiles[x][y].direction, x, y,
+                                _tiles[x][y].value);
+                            setState(() {
+                              clearDirections();
+                              updateTiles();
+                            });
+                          });
+                        }
                       },
-                      child: Dismissible(
-                        key: Key(_tiles[x][y].value),
-                        direction: _tiles[x][y].direction,
-                        behavior: HitTestBehavior.translucent,
-                        movementDuration: const Duration(milliseconds: 200),
-                        dismissThresholds: const {
-                          DismissDirection.startToEnd: 0.0,
-                          DismissDirection.endToStart: 0.0,
-                          DismissDirection.up: 0.0,
-                          DismissDirection.down: 0.0,
+                      child: AnimatedBuilder(
+                        animation: _tiles[x][y].animationController ??
+                            kAlwaysCompleteAnimation,
+                        builder: (context, child) {
+                          double offset =
+                              (_tiles[x][y].animationController?.value ?? 0) *
+                                  width *
+                                  0.268;
+                          Offset translation;
+                          switch (_tiles[x][y].direction) {
+                            case DismissDirection.startToEnd:
+                              translation = Offset(offset, 0);
+                              break;
+                            case DismissDirection.endToStart:
+                              translation = Offset(-offset, 0);
+                              break;
+                            case DismissDirection.up:
+                              translation = Offset(0, -offset);
+                              break;
+                            case DismissDirection.down:
+                              translation = Offset(0, offset);
+                              break;
+                            default:
+                              translation = Offset.zero;
+                          }
+                          return Transform.translate(
+                            offset: translation,
+                            child: child,
+                          );
                         },
-                        onDismissed: (direction) {
-                          setState(() {
-                            log('onDismissed');
-                          });
-                        },
-                        confirmDismiss: (direction) async =>
-                            confirmDismiss(direction, x, y, _tiles[x][y].value)
-                                .then((value) {
-                          setState(() {
-                            clearDirections();
-                            updateTiles();
-                            userMovementCounter++;
-                          });
-                        }),
-                        onUpdate: (details) {
-                          log('onUpdate');
-                        },
-                        child: AnimatedBuilder(
-                          animation:
-                              _tileAnimations[currentTile]!.bounceController,
-                          builder: (context, child) {
-                            return Transform.translate(
-                              offset: _tileAnimations[currentTile]!
-                                  .bounceAnimation
-                                  .value,
-                              child: child,
-                            );
+                        child: Dismissible(
+                          key: Key(_tiles[x][y].value),
+                          direction: _tiles[x][y].direction,
+                          behavior: HitTestBehavior.translucent,
+                          movementDuration: const Duration(milliseconds: 200),
+                          dismissThresholds: const {
+                            DismissDirection.startToEnd: 0.0,
+                            DismissDirection.endToStart: 0.0,
+                            DismissDirection.up: 0.0,
+                            DismissDirection.down: 0.0,
                           },
-                          child: Padding(
-                            padding: const EdgeInsets.all(1.0),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: _tiles[x][y].value != ''
-                                    ? const Color(0xFF7678ed)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  _tiles[x][y].value,
-                                  style: const TextStyle(
-                                    fontSize: 30,
-                                    color: Colors.white,
+                          onDismissed: (direction) {
+                            setState(() {
+                              log('onDismissed');
+                            });
+                          },
+                          confirmDismiss: (direction) async {
+                            return confirmDismiss(
+                                direction, x, y, _tiles[x][y].value);
+                          },
+                          onUpdate: (details) {
+                            log('onUpdate');
+                          },
+                          child: AnimatedBuilder(
+                            animation:
+                                _tileAnimations[currentTile]!.bounceAnimation,
+                            builder: (context, child) {
+                              return Transform.translate(
+                                offset: _tileAnimations[currentTile]!
+                                    .bounceAnimation
+                                    .value,
+                                child: child,
+                              );
+                            },
+                            child: AnimatedBuilder(
+                              animation: _tileAnimations[currentTile]!
+                                  .bounceController,
+                              builder: (context, child) {
+                                return SlideTransition(
+                                  key: UniqueKey(),
+                                  position: _tileAnimations[currentTile]!
+                                      .bounceAnimation,
+                                  child: child,
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(1.0),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: _tiles[x][y].value != ''
+                                        ? const Color(0xFF7678ed)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      _tiles[x][y].value,
+                                      style: const TextStyle(
+                                        fontSize: 30,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),

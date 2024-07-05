@@ -1,8 +1,9 @@
 {
     "editor.renderWhitespace": "none",
     "dart.autoImportCompletions": false,
-    "dart.lspSnippetTextEdits": true,
+    "dart.lspSnippetTextEdits": false,
     "dart.useLegacyAnalyzerProtocol": true,
     "editor.cursorBlinking": "solid",
-    "typescript.disableAutomaticTypeAcquisition": false
+    "typescript.disableAutomaticTypeAcquisition": false,
+    "diffEditor.maxFileSize": 100
 }

@@ -25,16 +25,16 @@ class TileAnimation {
     Offset end;
     switch (direction) {
       case DismissDirection.startToEnd:
-        end = const Offset(2.0, 0);
+        end = const Offset(-0.03, 0);
         break;
       case DismissDirection.endToStart:
-        end = const Offset(-2.0, 0);
+        end = const Offset(0.03, 0);
         break;
       case DismissDirection.up:
-        end = const Offset(0, -2.0);
+        end = const Offset(0, 0.03);
         break;
       case DismissDirection.down:
-        end = const Offset(0, 2.0);
+        end = const Offset(0, -0.03);
         break;
       default:
         end = Offset.zero;
@@ -47,7 +47,6 @@ class TileAnimation {
         reverseCurve: Curves.easeIn,
       ),
     );
-
     bounceController.forward().then((_) => bounceController.reverse(from: 1.0));
   }
 
