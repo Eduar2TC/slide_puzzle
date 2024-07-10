@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:slide_puzzle/pages/eight_page/Models/tile.dart';
+import 'package:slide_puzzle/pages/eight_page/Models/game_state.dart';
+import 'package:slide_puzzle/pages/eight_page/custom_widgets/bottom_widgets.dart';
+import 'package:slide_puzzle/pages/eight_page/custom_widgets/custom_dialog.dart';
 import 'package:slide_puzzle/pages/eight_page/custom_widgets/tile_animation.dart';
 import 'package:slide_puzzle/pages/eight_page/utils/handle_timer.dart';
-import 'package:slide_puzzle/pages/general_custom_widgets/button_scale_animation_widget.dart';
-import 'package:slide_puzzle/pages/general_custom_widgets/custom_button.dart';
-import 'package:slide_puzzle/pages/general_custom_widgets/scale_animation_widget.dart';
 
 class EightPage extends StatefulWidget {
   const EightPage({super.key});
@@ -28,13 +29,16 @@ class EightPageState extends State<EightPage>
   IconData iconPlay = Icons.play_arrow;
   IconData iconMute = Icons.volume_off;
 
+  late AnimationController _gridAnimationController;
+
+  late GameState _gameState;
+  late HandleTimer _handleTimer;
   @override
   void initState() {
-    _tiles = [
-      [Tile(value: '1'), Tile(value: '2'), Tile(value: '3')],
-      [Tile(value: '4'), Tile(value: '5'), Tile(value: '6')],
-      [Tile(value: '7'), Tile(value: '8'), Tile(value: '')],
-    ];
+    //init state of games
+    _gameState = Provider.of<GameState>(context, listen: false);
+    _handleTimer = Provider.of<HandleTimer>(context, listen: false);
+    _tiles = _gameState.getTiles;
     for (var row in _tiles) {
       for (var tile in row) {
         tile.animationController = AnimationController(
@@ -43,13 +47,16 @@ class EightPageState extends State<EightPage>
         );
       }
     }
-    _tiles.shuffle();
-    updateTiles();
-
-    handleTimer.setupTimer(() {
-      setState(() {});
+    //Solve conflict in init state
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _gameState.shuffleTiles();
+      _gameState.updateTiles();
+      _handleTimer.setupTimer(() {
+        setState(() {});
+      });
+      _handleTimer.startWatch();
     });
-    handleTimer.startWatch();
+
     WidgetsBinding.instance.addObserver(this);
 
     _tileAnimations = {};
@@ -58,6 +65,13 @@ class EightPageState extends State<EightPage>
         _tileAnimations[tile] = TileAnimation(this);
       }
     }
+    //grid animation
+    _gridAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    _gridAnimationController.forward();
+
     super.initState();
   }
 
@@ -65,80 +79,9 @@ class EightPageState extends State<EightPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     print('state = $state');
     if (state == AppLifecycleState.paused) {
-      handleTimer.stopWatch();
+      _handleTimer.stopWatch();
       _showPauseDialog(context);
     } else if (state == AppLifecycleState.resumed) {}
-  }
-
-  void clearDirections() {
-    for (int i = 0; i < _tiles.length; i++) {
-      for (int j = 0; j < _tiles[i].length; j++) {
-        _tiles[i][j].direction = DismissDirection.none;
-      }
-    }
-  }
-
-  void updateTiles() {
-    for (int i = 0; i < _tiles.length; i++) {
-      for (int j = 0; j < _tiles[i].length; j++) {
-        //M[0,0]
-        if (_tiles[i][j].value == '' && (i == 0 && j == 0)) {
-          _tiles[i][j + 1].direction = DismissDirection.endToStart;
-          _tiles[i + 1][j].direction = DismissDirection.up;
-        }
-        //M[0,1]
-        else if (_tiles[i][j].value == '' && (i == 0 && j == 1)) {
-          _tiles[i][j - 1].direction = DismissDirection.startToEnd;
-          _tiles[i + 1][j].direction = DismissDirection.up;
-          _tiles[i][j + 1].direction = DismissDirection.endToStart;
-        }
-        //M[0,2]
-        else if (_tiles[i][j].value == '' && (i == 0 && j == 2)) {
-          _tiles[i][j - 1].direction = DismissDirection.startToEnd;
-          _tiles[i + 1][j].direction = DismissDirection.up;
-        }
-        //M[1,0]
-        else if (_tiles[i][j].value == '' && (i == 1 && j == 0)) {
-          _tiles[i + 1][j].direction = DismissDirection.up;
-          _tiles[i][j + 1].direction = DismissDirection.endToStart;
-          _tiles[i - 1][j].direction = DismissDirection.down;
-        }
-        //M[1,1]
-        else if (_tiles[i][j].value == '' && (i == 1 && j == 1)) {
-          _tiles[i][j - 1].direction = DismissDirection.startToEnd;
-          _tiles[i + 1][j].direction = DismissDirection.up;
-          _tiles[i][j + 1].direction = DismissDirection.endToStart;
-          _tiles[i - 1][j].direction = DismissDirection.down;
-        }
-        //M[1,2]
-        else if (_tiles[i][j].value == '' && (i == 1 && j == 2)) {
-          _tiles[i][j - 1].direction = DismissDirection.startToEnd;
-          _tiles[i + 1][j].direction = DismissDirection.up;
-          _tiles[i - 1][j].direction = DismissDirection.down;
-        }
-        //M[2,0]
-        else if (_tiles[i][j].value == '' && (i == 2 && j == 0)) {
-          _tiles[i][j + 1].direction = DismissDirection.endToStart;
-          _tiles[i - 1][j].direction = DismissDirection.down;
-        }
-        //M[2,1]
-        else if (_tiles[i][j].value == '' && (i == 2 && j == 1)) {
-          _tiles[i][j - 1].direction = DismissDirection.startToEnd;
-          _tiles[i - 1][j].direction = DismissDirection.down;
-          _tiles[i][j + 1].direction = DismissDirection.endToStart;
-        }
-        //M[2,2]
-        else if (_tiles[i][j].value == '' && (i == 2 && j == 2)) {
-          _tiles[i][j - 1].direction = DismissDirection.startToEnd;
-          _tiles[i - 1][j].direction = DismissDirection.down;
-        }
-      }
-    }
-    for (var row in _tiles) {
-      for (var tile in row) {
-        tile.animationController?.reset();
-      }
-    }
   }
 
   @override
@@ -152,6 +95,8 @@ class EightPageState extends State<EightPage>
         tile.animationController?.dispose();
       }
     }
+    _gridAnimationController.dispose();
+    _handleTimer.dispose();
     super.dispose();
   }
 
@@ -189,9 +134,9 @@ class EightPageState extends State<EightPage>
           break;
       }
 
-      clearDirections();
-      updateTiles();
-      userMovementCounter++;
+      _gameState.clearDirections();
+      _gameState.updateTiles();
+      _gameState.incrementUserMovementCounter();
     });
 
     return Future.value(false);
@@ -199,119 +144,15 @@ class EightPageState extends State<EightPage>
 
   void _showPauseDialog(BuildContext context) {
     showDialog(
-      context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
-        return Center(
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            width: 300,
-            height: 200,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFFf9a825),
-                  Color(0xFFf07b3f),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                const DefaultTextStyle(
-                  style: TextStyle(
-                    fontSize: 30,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  child: Text(
-                    'Pause',
-                  ),
-                ),
-                Center(
-                  child: ButtonScaleAnimationWidget(
-                    child: CustomButton(
-                      width: 100,
-                      height: 100,
-                      icon: Icons.play_arrow,
-                      iconColor: Colors.white,
-                      bgColor: const Color(0xFFf9a825),
-                      size: 50,
-                      onPressed: () {
-                        iconPlay = Icons.play_arrow;
-                        handleTimer.startWatch();
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showRestartDialog(BuildContext context) {
-    showDialog(
       context: context,
-      barrierDismissible: false,
       builder: (BuildContext context) {
-        return Center(
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            width: 300,
-            height: 200,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFFf9a825),
-                  Color(0xFFf07b3f),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                const DefaultTextStyle(
-                  style: TextStyle(
-                    fontSize: 30,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  child: Text(
-                    'Restart',
-                  ),
-                ),
-                Center(
-                  child: ButtonScaleAnimationWidget(
-                    child: CustomButton(
-                      width: 100,
-                      height: 100,
-                      icon: Icons.refresh,
-                      iconColor: Colors.white,
-                      bgColor: const Color(0xFFf9a825),
-                      size: 50,
-                      onPressed: () {
-                        handleTimer.resetWatch();
-                        handleTimer.startWatch();
-                        _tiles.shuffle(); //sufle tiles vertically
-                        for (var element in _tiles) {
-                          element.shuffle(); //sufle tiles horizontally
-                        }
-                        updateTiles();
-                        userMovementCounter = 0;
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+        return CustomDialog(
+          title: 'Play',
+          iconData: Icons.play_arrow,
+          onPressed: () {
+            _handleTimer.startWatch();
+          },
         );
       },
     );
@@ -360,7 +201,7 @@ class EightPageState extends State<EightPage>
                           width: 5.0,
                         ),
                         Text(
-                          handleTimer.returnTime(),
+                          _handleTimer.returnTime(),
                           style: const TextStyle(
                             fontSize: 20,
                             color: Color(0XFF264653),
@@ -388,7 +229,7 @@ class EightPageState extends State<EightPage>
                           width: 5.0,
                         ),
                         Text(
-                          userMovementCounter.toString(),
+                          _gameState.userMovementCounter.toString(),
                           style: const TextStyle(
                             fontSize: 20,
                             color: Color(0XFF264653),
@@ -441,189 +282,167 @@ class EightPageState extends State<EightPage>
                     x = (index / tilesLength).floor();
                     y = (index % tilesLength);
                     Tile currentTile = _tiles[x][y];
-                    return GestureDetector(
-                      onTap: () async {
-                        log('${_tiles[x][y].direction}');
-                        /*TODO: ONTAP GAME MODE */
-
-                        if (_tiles[x][y].direction != DismissDirection.none) {
-                          await _tiles[x][y]
-                              .animationController
-                              ?.forward(from: 0.0)
-                              .then((_) {
-                            confirmDismiss(_tiles[x][y].direction, x, y,
-                                _tiles[x][y].value);
-                            setState(() {
-                              clearDirections();
-                              updateTiles();
-                            });
-                          });
-                        }
-                      },
-                      child: AnimatedBuilder(
-                        animation: _tiles[x][y].animationController ??
-                            kAlwaysCompleteAnimation,
-                        builder: (context, child) {
-                          double offset =
-                              (_tiles[x][y].animationController?.value ?? 0) *
-                                  width *
-                                  0.268;
-                          Offset translation;
-                          switch (_tiles[x][y].direction) {
-                            case DismissDirection.startToEnd:
-                              translation = Offset(offset, 0);
-                              break;
-                            case DismissDirection.endToStart:
-                              translation = Offset(-offset, 0);
-                              break;
-                            case DismissDirection.up:
-                              translation = Offset(0, -offset);
-                              break;
-                            case DismissDirection.down:
-                              translation = Offset(0, offset);
-                              break;
-                            default:
-                              translation = Offset.zero;
-                          }
-                          return Transform.translate(
-                            offset: translation,
-                            child: child,
-                          );
-                        },
-                        child: Dismissible(
-                          key: Key(_tiles[x][y].value),
-                          direction: _tiles[x][y].direction,
-                          behavior: HitTestBehavior.translucent,
-                          movementDuration: const Duration(milliseconds: 200),
-                          dismissThresholds: const {
-                            DismissDirection.startToEnd: 0.0,
-                            DismissDirection.endToStart: 0.0,
-                            DismissDirection.up: 0.0,
-                            DismissDirection.down: 0.0,
-                          },
-                          onDismissed: (direction) {
-                            setState(() {
-                              log('onDismissed');
-                            });
-                          },
-                          confirmDismiss: (direction) async {
-                            return confirmDismiss(
-                                direction, x, y, _tiles[x][y].value);
-                          },
-                          onUpdate: (details) {
-                            log('onUpdate');
-                          },
-                          child: AnimatedBuilder(
-                            animation:
-                                _tileAnimations[currentTile]!.bounceAnimation,
-                            builder: (context, child) {
-                              return Transform.translate(
-                                offset: _tileAnimations[currentTile]!
-                                    .bounceAnimation
-                                    .value,
-                                child: child,
-                              );
-                            },
-                            child: AnimatedBuilder(
-                              animation: _tileAnimations[currentTile]!
-                                  .bounceController,
-                              builder: (context, child) {
-                                return SlideTransition(
-                                  key: UniqueKey(),
-                                  position: _tileAnimations[currentTile]!
-                                      .bounceAnimation,
-                                  child: child,
-                                );
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(1.0),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: _tiles[x][y].value != ''
-                                        ? const Color(0xFF7678ed)
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      _tiles[x][y].value,
-                                      style: const TextStyle(
-                                        fontSize: 30,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
+                    return itemGridBuilder(index, x, y, width, currentTile);
                   },
                 ),
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ScaleAnimationWidget(
-                    child: CustomButton(
-                      key: const Key('shuffle'),
-                      width: width * 0.1,
-                      height: width * 0.1,
-                      icon: Icons.refresh,
-                      iconColor: Colors.white,
-                      bgColor: const Color(0xFFf9a825),
-                      size: width * 0.1,
-                      onPressed: () {
-                        //spend user press to shuffle tiles
-                        _showRestartDialog(context);
-                        handleTimer.stopWatch();
-                      },
-                    ),
-                  ),
-                  //play button
-                  ScaleAnimationWidget(
-                    child: CustomButton(
-                      key: const Key('play'),
-                      width: width * 0.1,
-                      height: width * 0.1,
-                      icon: iconPlay,
-                      iconColor: Colors.white,
-                      bgColor: const Color(0xFFf9a825),
-                      size: width * 0.1,
-                      onPressed: () {
-                        _showPauseDialog(context);
-                        iconPlay == Icons.play_arrow
-                            ? {
-                                iconPlay = Icons.pause,
-                                handleTimer.stopWatch(),
-                              }
-                            : null;
-                      },
-                    ),
-                  ),
-                  //mute button
-                  ScaleAnimationWidget(
-                    child: CustomButton(
-                      key: const Key('mute'),
-                      width: width * 0.1,
-                      height: width * 0.1,
-                      icon: iconMute,
-                      iconColor: Colors.white,
-                      bgColor: const Color(0xFFf9a825),
-                      size: width * 0.1,
-                      onPressed: () {
-                        iconMute == Icons.volume_off
-                            ? iconMute = Icons.volume_up
-                            : iconMute = Icons.volume_off;
-                        log('mute');
-                      },
-                    ),
-                  ),
-                ],
-              )
+              const BottomWidgets(),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  AnimatedBuilder itemGridBuilder(
+      int index, int x, int y, double width, Tile currentTile) {
+    return AnimatedBuilder(
+      animation: _gridAnimationController,
+      builder: (context, child) {
+        final delay = index *
+            100; // Ajusta este valor para cambiar el retraso entre elementos
+        final start = delay / 1000;
+        var end = start +
+            0.5; // Ajusta este valor para cambiar la duración de la animación de cada elemento
+        end = end.clamp(0.0, 1.0);
+        return FadeTransition(
+          opacity: Tween<double>(begin: 0, end: 1).animate(
+            CurvedAnimation(
+              parent: _gridAnimationController,
+              curve: Interval(start, end, curve: Curves.easeOut),
+            ),
+          ),
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0, end: 1).animate(
+              CurvedAnimation(
+                parent: _gridAnimationController,
+                curve: Interval(start, end, curve: Curves.easeOut),
+              ),
+            ),
+            child: child,
+          ),
+          /*SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0, 0.5),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: _gridAnimationController,
+                              curve:
+                                  Interval(start, end, curve: Curves.easeOut),
+                            ),
+                          ),
+                          child: child,
+                        ),*/
+        );
+      },
+      child: GestureDetector(
+        onTap: () async {
+          log('${_tiles[x][y].direction}');
+          /*TODO: ONTAP GAME MODE */
+
+          if (_tiles[x][y].direction != DismissDirection.none) {
+            await _tiles[x][y]
+                .animationController
+                ?.forward(from: 0.0)
+                .then((_) {
+              confirmDismiss(_tiles[x][y].direction, x, y, _tiles[x][y].value);
+              setState(() {
+                _gameState.clearDirections();
+                _gameState.updateTiles();
+              });
+            });
+          }
+        },
+        child: AnimatedBuilder(
+          animation:
+              _tiles[x][y].animationController ?? kAlwaysCompleteAnimation,
+          builder: (context, child) {
+            double offset =
+                (_tiles[x][y].animationController?.value ?? 0) * width * 0.268;
+            Offset translation;
+            switch (_tiles[x][y].direction) {
+              case DismissDirection.startToEnd:
+                translation = Offset(offset, 0);
+                break;
+              case DismissDirection.endToStart:
+                translation = Offset(-offset, 0);
+                break;
+              case DismissDirection.up:
+                translation = Offset(0, -offset);
+                break;
+              case DismissDirection.down:
+                translation = Offset(0, offset);
+                break;
+              default:
+                translation = Offset.zero;
+            }
+            return Transform.translate(
+              offset: translation,
+              child: child,
+            );
+          },
+          child: Dismissible(
+            key: Key(_tiles[x][y].value),
+            direction: _tiles[x][y].direction,
+            behavior: HitTestBehavior.translucent,
+            movementDuration: const Duration(milliseconds: 200),
+            dismissThresholds: const {
+              DismissDirection.startToEnd: 0.0,
+              DismissDirection.endToStart: 0.0,
+              DismissDirection.up: 0.0,
+              DismissDirection.down: 0.0,
+            },
+            onDismissed: (direction) {
+              setState(() {
+                log('onDismissed');
+              });
+            },
+            confirmDismiss: (direction) async {
+              return confirmDismiss(direction, x, y, _tiles[x][y].value);
+            },
+            onUpdate: (details) {
+              log('onUpdate');
+            },
+            child: AnimatedBuilder(
+              animation: _tileAnimations[currentTile]!.bounceAnimation,
+              builder: (context, child) {
+                return Transform.translate(
+                  offset: _tileAnimations[currentTile]!.bounceAnimation.value,
+                  child: child,
+                );
+              },
+              child: AnimatedBuilder(
+                animation: _tileAnimations[currentTile]!.bounceController,
+                builder: (context, child) {
+                  return SlideTransition(
+                    key: UniqueKey(),
+                    position: _tileAnimations[currentTile]!.bounceAnimation,
+                    child: child,
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(1.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: _tiles[x][y].value != ''
+                          ? const Color(0xFF7678ed)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: Text(
+                        _tiles[x][y].value,
+                        style: const TextStyle(
+                          fontSize: 30,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

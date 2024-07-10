@@ -1,6 +1,8 @@
 import 'dart:async';
 
-class HandleTimer {
+import 'package:flutter/material.dart';
+
+class HandleTimer with ChangeNotifier {
   Timer? _timer;
   Stopwatch? _stopwatch;
   HandleTimer() {
@@ -22,10 +24,12 @@ class HandleTimer {
   void startWatch() {
     stopWatch();
     _stopwatch!.start();
+    notifyListeners();
   }
 
   void resetWatch() {
     _stopwatch!.reset();
+    notifyListeners();
   }
 
   void dispose() {

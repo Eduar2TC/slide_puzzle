@@ -1,9 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:slide_puzzle/pages/eight_page/Models/game_state.dart';
 import 'package:slide_puzzle/pages/eight_page/eight_page.dart';
+import 'package:slide_puzzle/pages/eight_page/utils/handle_timer.dart';
 import 'package:slide_puzzle/pages/home_page/home_page.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => HandleTimer()),
+        ChangeNotifierProvider(create: (_) => GameState()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
