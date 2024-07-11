@@ -2,8 +2,9 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:slide_puzzle/pages/eight_page/Models/game_state.dart';
+import 'package:slide_puzzle/pages/eight_page/provider/game_state.dart';
 import 'package:slide_puzzle/pages/eight_page/custom_widgets/custom_dialog.dart';
+import 'package:slide_puzzle/pages/eight_page/provider/game_state_animations.dart';
 import 'package:slide_puzzle/pages/eight_page/utils/handle_timer.dart';
 import 'package:slide_puzzle/pages/general_custom_widgets/custom_button.dart';
 import 'package:slide_puzzle/pages/general_custom_widgets/scale_animation_widget.dart';
@@ -16,8 +17,8 @@ class BottomWidgets extends StatelessWidget {
     double width = MediaQuery.of(context).size.width;
     IconData iconMute = Icons.volume_up;
 
-    return Consumer2<HandleTimer, GameState>(
-        builder: (context, handleTimer, gameState, child) {
+    return Consumer3<HandleTimer, GameState, GameStateGridAnimation>(builder:
+        (context, handleTimer, gameState, gameStateGridAnimation, child) {
       return Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
@@ -45,6 +46,8 @@ class BottomWidgets extends StatelessWidget {
                         handleTimer.startWatch();
                         gameState.shuffleTiles();
                         gameState.updateTiles();
+                        gameStateGridAnimation.resetGridAnimation();
+                        gameStateGridAnimation.startGridAnimation();
                         gameState.resetIncrementUserMovementCounter = 0;
                       },
                     );

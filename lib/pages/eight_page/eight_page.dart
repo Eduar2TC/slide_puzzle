@@ -4,10 +4,11 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:slide_puzzle/pages/eight_page/Models/tile.dart';
-import 'package:slide_puzzle/pages/eight_page/Models/game_state.dart';
+import 'package:slide_puzzle/pages/eight_page/provider/game_state.dart';
 import 'package:slide_puzzle/pages/eight_page/custom_widgets/bottom_widgets.dart';
 import 'package:slide_puzzle/pages/eight_page/custom_widgets/custom_dialog.dart';
 import 'package:slide_puzzle/pages/eight_page/custom_widgets/tile_animation.dart';
+import 'package:slide_puzzle/pages/eight_page/provider/game_state_animations.dart';
 import 'package:slide_puzzle/pages/eight_page/utils/handle_timer.dart';
 
 class EightPage extends StatefulWidget {
@@ -21,23 +22,21 @@ class EightPageState extends State<EightPage>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   late List<List<Tile>> _tiles;
   late Map<Tile, TileAnimation> _tileAnimations;
-
-  HandleTimer handleTimer = HandleTimer();
-
-  int userMovementCounter = 0;
-  //icon play icon
-  IconData iconPlay = Icons.play_arrow;
-  IconData iconMute = Icons.volume_off;
-
-  late AnimationController _gridAnimationController;
-
   late GameState _gameState;
   late HandleTimer _handleTimer;
+  //state game animations
+  late GameStateGridAnimation _gameStateGridAnimation;
+
   @override
   void initState() {
-    //init state of games
+    //init state game
     _gameState = Provider.of<GameState>(context, listen: false);
     _handleTimer = Provider.of<HandleTimer>(context, listen: false);
+    //init animations of game state
+    _gameStateGridAnimation =
+        Provider.of<GameStateGridAnimation>(context, listen: false);
+    _gameStateGridAnimation.initializeAnimations(this);
+
     _tiles = _gameState.getTiles;
     for (var row in _tiles) {
       for (var tile in row) {
@@ -55,6 +54,7 @@ class EightPageState extends State<EightPage>
         setState(() {});
       });
       _handleTimer.startWatch();
+      _gameStateGridAnimation.startGridAnimation();
     });
 
     WidgetsBinding.instance.addObserver(this);
@@ -65,19 +65,12 @@ class EightPageState extends State<EightPage>
         _tileAnimations[tile] = TileAnimation(this);
       }
     }
-    //grid animation
-    _gridAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-    _gridAnimationController.forward();
-
     super.initState();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    print('state = $state');
+    log('state = $state');
     if (state == AppLifecycleState.paused) {
       _handleTimer.stopWatch();
       _showPauseDialog(context);
@@ -95,7 +88,8 @@ class EightPageState extends State<EightPage>
         tile.animationController?.dispose();
       }
     }
-    _gridAnimationController.dispose();
+    //dispose grid and timer animations
+    _gameStateGridAnimation.disposeAnimations();
     _handleTimer.dispose();
     super.dispose();
   }
@@ -156,6 +150,39 @@ class EightPageState extends State<EightPage>
         );
       },
     );
+  }
+
+  List<Widget> _getAnimatedDigits(int number) {
+    final digits = number.toString().split('');
+    return digits.map((digit) {
+      return AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        transitionBuilder: (child, animation) {
+          return SlideTransition(
+            position: Tween(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(animation),
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.8, end: 1.0).animate(animation),
+              child: FadeTransition(
+                opacity: animation,
+                child: child,
+              ),
+            ),
+          );
+        },
+        child: Text(
+          key: ValueKey('$digit${digits.indexOf(digit)}'),
+          digit,
+          style: const TextStyle(
+            fontSize: 20,
+            color: Color(0XFF264653),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+    }).toList();
   }
 
   @override
@@ -228,13 +255,11 @@ class EightPageState extends State<EightPage>
                         const SizedBox(
                           width: 5.0,
                         ),
-                        Text(
-                          _gameState.userMovementCounter.toString(),
-                          style: const TextStyle(
-                            fontSize: 20,
-                            color: Color(0XFF264653),
-                            fontWeight: FontWeight.bold,
-                          ),
+                        //TODO: FIX SWITCHER
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: _getAnimatedDigits(
+                              _gameState.userMovementCounter),
                         ),
                         const SizedBox(
                           width: 15,
@@ -261,7 +286,7 @@ class EightPageState extends State<EightPage>
                 ],
               ),
               Container(
-                padding: const EdgeInsets.all(5),
+                padding: EdgeInsets.all(width * 0.010),
                 width: width * 0.8,
                 height: width * 0.8,
                 decoration: BoxDecoration(
@@ -297,7 +322,7 @@ class EightPageState extends State<EightPage>
   AnimatedBuilder itemGridBuilder(
       int index, int x, int y, double width, Tile currentTile) {
     return AnimatedBuilder(
-      animation: _gridAnimationController,
+      animation: _gameStateGridAnimation.gridAnimationController,
       builder: (context, child) {
         final delay = index *
             100; // Ajusta este valor para cambiar el retraso entre elementos
@@ -308,15 +333,23 @@ class EightPageState extends State<EightPage>
         return FadeTransition(
           opacity: Tween<double>(begin: 0, end: 1).animate(
             CurvedAnimation(
-              parent: _gridAnimationController,
-              curve: Interval(start, end, curve: Curves.easeOut),
+              parent: _gameStateGridAnimation.gridAnimationController,
+              curve: Interval(
+                start,
+                end,
+                curve: Curves.easeOut,
+              ),
             ),
           ),
           child: ScaleTransition(
             scale: Tween<double>(begin: 0, end: 1).animate(
               CurvedAnimation(
-                parent: _gridAnimationController,
-                curve: Interval(start, end, curve: Curves.easeOut),
+                parent: _gameStateGridAnimation.gridAnimationController,
+                curve: Interval(
+                  start,
+                  end,
+                  curve: Curves.easeOut,
+                ),
               ),
             ),
             child: child,

@@ -4,6 +4,7 @@ import 'package:slide_puzzle/pages/eight_page/Models/tile.dart';
 class GameState with ChangeNotifier {
   List<List<Tile>> _tiles = [];
   int _userMovementCounter = 0;
+  late AnimationController _gridAnimationController;
 
   GameState() {
     _initializePuzzle();
@@ -149,5 +150,28 @@ class GameState with ChangeNotifier {
   set tiles(List<List<Tile>> value) {
     _tiles = value;
     notifyListeners();
+  }
+
+  //animations
+  void initController(TickerProvider vsync) {
+    _gridAnimationController = AnimationController(
+      vsync: vsync,
+      duration: const Duration(milliseconds: 1000),
+    );
+  }
+
+  AnimationController get controller => _gridAnimationController;
+  void startAnimation() {
+    _gridAnimationController.forward();
+    notifyListeners();
+  }
+
+  void resetAnimation() {
+    _gridAnimationController.reset();
+    notifyListeners();
+  }
+
+  void disposeController() {
+    _gridAnimationController.dispose();
   }
 }
